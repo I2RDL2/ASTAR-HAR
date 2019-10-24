@@ -14,5 +14,7 @@ pip install tensorflow==1.2.1 numpy scipy pandas
 
 To train the model, run:
 
+* 'python /experiments/har/har.py --template X for HAR models.
+ modify arguments in template.py for choosing tyep of experiment and no: of unlabeled samples
 * `python train_svhn.py` to train on SVHN using 500 labels
 * `python train_cifar10.py` to train on CIFAR-10 using 4000 labels
