@@ -1,0 +1,376 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "name": "trial.ipynb",
+      "provenance": [],
+      "collapsed_sections": [],
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/I2RDL2/ASTAR-HAR/blob/arunraja_trials/cifar10_error\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "7-8IQRTUtzgD",
+        "colab_type": "code",
+        "outputId": "eacdb83a-2a39-4758-9dbb-45f3bae30c1f",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 34
+        }
+      },
+      "source": [
+        "!git clone https://github.com/I2RDL2/ASTAR-HAR.git"
+      ],
+      "execution_count": 1,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "fatal: destination path 'ASTAR-HAR' already exists and is not an empty directory.\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "UjckRfJLt_7c",
+        "colab_type": "code",
+        "outputId": "d4910ae9-f2fc-4378-ac50-3f50b4eae914",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 86
+        }
+      },
+      "source": [
+        "import numpy as np\n",
+        "data=np.load(\"ASTAR-HAR/HAR_DATA.npz\")\n",
+        "lst = data.files\n",
+        "for item in lst:\n",
+        "    print(item)\n",
+        "    # print(data[item])"
+      ],
+      "execution_count": 2,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "trainx\n",
+            "trainy\n",
+            "testy\n",
+            "testx\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "zAQ15LpHwRzU",
+        "colab_type": "code",
+        "outputId": "e48f44eb-9a71-4b5b-e075-878382ab01a7",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 34
+        }
+      },
+      "source": [
+        "%%writefile /content/ASTAR-HAR/experiments/har/har.py\n",
+        "\n",
+        "\n",
+        "# Copyright (c) 2018, Curious AI Ltd. All rights reserved.\n",
+        "#\n",
+        "# This work is licensed under the Creative Commons Attribution-NonCommercial\n",
+        "# 4.0 International License. To view a copy of this license, visit\n",
+        "# http://creativecommons.org/licenses/by-nc/4.0/ or send a letter to\n",
+        "# Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.\n",
+        "\n",
+        "\"\"\"CIFAR-10 final evaluation\"\"\"\n",
+        "\n",
+        "#changed imports to suit colab\n",
+        "import logging\n",
+        "import sys,os\n",
+        "sys.path.append('/content/ASTAR-HAR/experiments/')\n",
+        "\n",
+        "import run_context\n",
+        "# from experiments.run_context import RunContext\n",
+        "# from experiments.run_context import Training_log_plot\n",
+        "##\n",
+        "\n",
+        "\n",
+        "# from experiments.run_context import Training_log_plot\n",
+        "import tensorflow as tf\n",
+        "sys.path.append('/content/ASTAR-HAR/')\n",
+        "import datasets\n",
+        "from mean_teacher.arguments import args\n",
+        "from mean_teacher.mean_teacher_base import mean_teacher_base as mean_teacher\n",
+        "from mean_teacher import minibatching\n",
+        "\n",
+        "\n",
+        "LOG = logging.getLogger('main')\n",
+        "\n",
+        "data_loader = getattr(datasets, args.dataset)\n",
+        "\n",
+        "def parameters(): \n",
+        "    for n_labeled in args.n_labeled:\n",
+        "        for data_seed in range(args.init_run, args.init_run + args.n_runs):\n",
+        "            yield {\n",
+        "                'n_labeled': n_labeled,\n",
+        "                'data_seed': data_seed\n",
+        "            }\n",
+        "\n",
+        "def run(n_labeled, data_seed):\n",
+        "\n",
+        "    data = data_loader(n_labeled=n_labeled,\n",
+        "                    data_seed=data_seed,\n",
+        "                    test_phase=True)\n",
+        "\n",
+        "    print('{} is loaded with {} of training samples'.format(args.dataset,data['num_train']))\n",
+        "\n",
+        "    if n_labeled == 'all':\n",
+        "        args.n_labeled_per_batch =  args.minibatch_size\n",
+        "        args.max_consistency_cost = args.minibatch_size\n",
+        "    else:\n",
+        "        if args.max_consistency_cost != 0 :\n",
+        "            args.max_consistency_cost = args.minibatch_size* int(n_labeled) / data['num_train']\n",
+        "\n",
+        "\n",
+        "    tf.reset_default_graph()\n",
+        "    runner_name = os.path.basename(__file__).split(\".\")[0]\n",
+        "    runner_name = args.save\n",
+        "    file_name = '{}_{}'.format(runner_name,n_labeled)\n",
+        "    log_plot = Training_log_plot(file_name,data_seed)\n",
+        "    model = mean_teacher(RunContext(file_name, data_seed), args,log_plot)\n",
+        "\n",
+        "    training_batches = minibatching.training_batches(data.training,\n",
+        "                                                     args.minibatch_size,\n",
+        "                                                     args.n_labeled_per_batch)\n",
+        "    evaluation_batches_fn = minibatching.evaluation_epoch_generator(data.evaluation,\n",
+        "                                                                    args.minibatch_size)\n",
+        "    test_batches_fn = minibatching.evaluation_epoch_generator(data.evaluation,\n",
+        "                                                                    batch_size = 260)\n",
+        "\n",
+        "\n",
+        "    # import pdb; pdb.set_trace()\n",
+        "    if args.test_only:\n",
+        "\n",
+        "        print('loading folers')\n",
+        "        root_path = \"./results/\"\n",
+        "        folders = os.listdir(root_path)\n",
+        "        assert args.ckp != '.','No ckp info was input'\n",
+        "        for i in range (len(folders)):\n",
+        "            folders[i] = os.path.join(root_path,folders[i])\n",
+        "            #print(folders[i])\n",
+        "        for folder in folders:\n",
+        "            if args.ckp in folder:\n",
+        "                print(folder)\n",
+        "\n",
+        "                matrix = []\n",
+        "                for random_seed in os.listdir(folder):\n",
+        "                    ckp_path = os.path.join(folder,random_seed,'transient')\n",
+        "                    ckp = tf.train.latest_checkpoint(ckp_path)\n",
+        "                    print('restore checkpoint from {}'.format(ckp))\n",
+        "                    model.restore(ckp)\n",
+        "\n",
+        "                    confuse_matrix = model.confusion_matrix(test_batches_fn)\n",
+        "                    print(acc_from_confuse(confuse_matrix))\n",
+        "                    acc_matrix = acc_from_confuse(confuse_matrix)\n",
+        "                    matrix.append(acc_matrix)\n",
+        "\n",
+        "                save_confuse_matrix(matrix,ckp_path)\n",
+        "\n",
+        "    else:\n",
+        "        model.train(training_batches, evaluation_batches_fn)\n",
+        "\n",
+        "import numpy as np\n",
+        "def acc_from_confuse(matrix):\n",
+        "    num_sample_cls = np.sum(matrix,axis=1)\n",
+        "    correct = np.diag(matrix)\n",
+        "    accuracy = correct/num_sample_cls \n",
+        "    return accuracy\n",
+        "\n",
+        "def save_confuse_matrix(matrix,ckp_path):\n",
+        "    matrix = np.asarray(matrix)\n",
+        "    average = np.mean(matrix,axis=0)\n",
+        "    # var = np.std(average)\n",
+        "    csv_path = './results/csv/confuse_matrix/'+ckp_path.split('/')[2]+'_avg_conf.csv'\n",
+        "    # average.to_csv(csv_path)\n",
+        "    np.savetxt(csv_path,average)\n",
+        "    print('File saved as {}'.format(csv_path))\n",
+        "\n",
+        "if __name__ == \"__main__\":\n",
+        "    os.environ[\"CUDA_VISIBLE_DEVICES\"] = str(args.gpu)\n",
+        "    for run_params in parameters():\n",
+        "        run(**run_params)\n"
+      ],
+      "execution_count": 3,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Overwriting /content/ASTAR-HAR/experiments/har/har.py\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "oUFROayrxZra",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 481
+        },
+        "outputId": "37bc1617-5efb-4870-e3eb-64412a0be2a3"
+      },
+      "source": [
+        "!pip uninstall tensorflow\n",
+        "!pip install tensorflow==1.2.1 numpy scipy pandas"
+      ],
+      "execution_count": 4,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Uninstalling tensorflow-1.2.1:\n",
+            "  Would remove:\n",
+            "    /usr/local/bin/saved_model_cli\n",
+            "    /usr/local/bin/tensorboard\n",
+            "    /usr/local/lib/python3.6/dist-packages/external/*\n",
+            "    /usr/local/lib/python3.6/dist-packages/tensorflow-1.2.1.dist-info/*\n",
+            "    /usr/local/lib/python3.6/dist-packages/tensorflow/*\n",
+            "Proceed (y/n)? y\n",
+            "  Successfully uninstalled tensorflow-1.2.1\n",
+            "Collecting tensorflow==1.2.1\n",
+            "  Using cached https://files.pythonhosted.org/packages/7d/d0/96269b9ecfcc55cb38779831595e0521c34ef4ecdeba08b1ba4194cc4813/tensorflow-1.2.1-cp36-cp36m-manylinux1_x86_64.whl\n",
+            "Requirement already satisfied: numpy in /usr/local/lib/python3.6/dist-packages (1.18.4)\n",
+            "Requirement already satisfied: scipy in /usr/local/lib/python3.6/dist-packages (1.4.1)\n",
+            "Requirement already satisfied: pandas in /usr/local/lib/python3.6/dist-packages (1.0.3)\n",
+            "Requirement already satisfied: werkzeug>=0.11.10 in /usr/local/lib/python3.6/dist-packages (from tensorflow==1.2.1) (1.0.1)\n",
+            "Requirement already satisfied: backports.weakref==1.0rc1 in /usr/local/lib/python3.6/dist-packages (from tensorflow==1.2.1) (1.0rc1)\n",
+            "Requirement already satisfied: bleach==1.5.0 in /usr/local/lib/python3.6/dist-packages (from tensorflow==1.2.1) (1.5.0)\n",
+            "Requirement already satisfied: markdown>=2.6.8 in /usr/local/lib/python3.6/dist-packages (from tensorflow==1.2.1) (3.2.1)\n",
+            "Requirement already satisfied: wheel>=0.26 in /usr/local/lib/python3.6/dist-packages (from tensorflow==1.2.1) (0.34.2)\n",
+            "Requirement already satisfied: html5lib==0.9999999 in /usr/local/lib/python3.6/dist-packages (from tensorflow==1.2.1) (0.9999999)\n",
+            "Requirement already satisfied: protobuf>=3.2.0 in /usr/local/lib/python3.6/dist-packages (from tensorflow==1.2.1) (3.10.0)\n",
+            "Requirement already satisfied: six>=1.10.0 in /usr/local/lib/python3.6/dist-packages (from tensorflow==1.2.1) (1.12.0)\n",
+            "Requirement already satisfied: pytz>=2017.2 in /usr/local/lib/python3.6/dist-packages (from pandas) (2018.9)\n",
+            "Requirement already satisfied: python-dateutil>=2.6.1 in /usr/local/lib/python3.6/dist-packages (from pandas) (2.8.1)\n",
+            "Requirement already satisfied: setuptools>=36 in /usr/local/lib/python3.6/dist-packages (from markdown>=2.6.8->tensorflow==1.2.1) (46.1.3)\n",
+            "Installing collected packages: tensorflow\n",
+            "Successfully installed tensorflow-1.2.1\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "pF9q7u66xfKV",
+        "colab_type": "code",
+        "outputId": "b41f451d-a086-4cd4-f04e-443ac1f40fcc",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 450
+        }
+      },
+      "source": [
+        "!python3 /content/ASTAR-HAR/experiments/har/har.py  "
+      ],
+      "execution_count": 5,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "/usr/local/lib/python3.6/dist-packages/tensorflow/python/framework/dtypes.py:458: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n",
+            "  _np_qint8 = np.dtype([(\"qint8\", np.int8, 1)])\n",
+            "/usr/local/lib/python3.6/dist-packages/tensorflow/python/framework/dtypes.py:459: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n",
+            "  _np_quint8 = np.dtype([(\"quint8\", np.uint8, 1)])\n",
+            "/usr/local/lib/python3.6/dist-packages/tensorflow/python/framework/dtypes.py:460: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n",
+            "  _np_qint16 = np.dtype([(\"qint16\", np.int16, 1)])\n",
+            "/usr/local/lib/python3.6/dist-packages/tensorflow/python/framework/dtypes.py:461: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n",
+            "  _np_quint16 = np.dtype([(\"quint16\", np.uint16, 1)])\n",
+            "/usr/local/lib/python3.6/dist-packages/tensorflow/python/framework/dtypes.py:462: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n",
+            "  _np_qint32 = np.dtype([(\"qint32\", np.int32, 1)])\n",
+            "/usr/local/lib/python3.6/dist-packages/tensorflow/python/framework/dtypes.py:465: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n",
+            "  np_resource = np.dtype([(\"resource\", np.ubyte, 1)])\n",
+            "Traceback (most recent call last):\n",
+            "  File \"/content/ASTAR-HAR/experiments/har/har.py\", line 126, in <module>\n",
+            "    run(**run_params)\n",
+            "  File \"/content/ASTAR-HAR/experiments/har/har.py\", line 48, in run\n",
+            "    test_phase=True)\n",
+            "  File \"/content/ASTAR-HAR/datasets/cifar10.py\", line 25, in __init__\n",
+            "    self._load()\n",
+            "  File \"/content/ASTAR-HAR/datasets/cifar10.py\", line 36, in _load\n",
+            "    file_data = np.load(self.DATA_PATH)\n",
+            "  File \"/usr/local/lib/python3.6/dist-packages/numpy/lib/npyio.py\", line 428, in load\n",
+            "    fid = open(os_fspath(file), \"rb\")\n",
+            "FileNotFoundError: [Errno 2] No such file or directory: 'data/images/cifar/cifar10/cifar10_gcn_zca_v2.npz'\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "BKXsN6kJBOz0",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 131
+        },
+        "outputId": "a8785652-f164-436f-b308-50ac363e9c42"
+      },
+      "source": [
+        "./prepare_data.sh"
+      ],
+      "execution_count": 6,
+      "outputs": [
+        {
+          "output_type": "error",
+          "ename": "SyntaxError",
+          "evalue": "ignored",
+          "traceback": [
+            "\u001b[0;36m  File \u001b[0;32m\"<ipython-input-6-159a387fd400>\"\u001b[0;36m, line \u001b[0;32m1\u001b[0m\n\u001b[0;31m    ./prepare_data.sh\u001b[0m\n\u001b[0m    ^\u001b[0m\n\u001b[0;31mSyntaxError\u001b[0m\u001b[0;31m:\u001b[0m invalid syntax\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "t1IsUByHUIwt",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        ""
+      ],
+      "execution_count": 0,
+      "outputs": []
+    }
+  ]
+}
