@@ -7,13 +7,13 @@ def set_template(args):
     #     args.input_dim = [9,64,1]
     #     args.cnn = 'har_conv2d'
 
-    # if args.template.find('har_sup_mt') >= 0:
-    #     args.save = 'har_sup_mt'
-    #     args.dataset = 'HAR'
-    #     args.n_labeled = [288,600,1200]
-    #     args.input_dim = [9,64,1]
-    #     args.cnn = 'har_conv2d'
-    #     args.n_labeled_per_batch = 100
+    if args.template.find('har_sup_mt') >= 0:
+         args.save = 'har_sup_mt'
+         args.dataset = 'HAR'
+         args.n_labeled = [288,600,1200]
+         args.input_dim = [9,64,1]
+         args.cnn = 'har_conv2d'
+         args.n_labeled_per_batch = 100
 
 
     # if args.template.find('har_sp_mt') >= 0:
