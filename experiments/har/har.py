@@ -21,7 +21,7 @@ from mean_teacher import minibatching
 
 
 LOG = logging.getLogger('main')
-
+print(args.dataset)
 data_loader = getattr(datasets, args.dataset)
 
 def parameters(): 
@@ -36,8 +36,8 @@ def run(n_labeled, data_seed):
 
     data = data_loader(n_labeled=n_labeled,
                     data_seed=data_seed,
-                    test_phase=True,
-                    dataset_detail = args.dataset_detail)
+                    test_phase=True)
+                    #dataset_detail = args.dataset_detail)
 
     print('{} is loaded with {} of training samples'.format(args.dataset,data['num_train']))
 
