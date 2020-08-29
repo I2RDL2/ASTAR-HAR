@@ -1,0 +1,26 @@
+activities_set = ['Biking',
+ 'Brushing',
+ 'ClimbingUp',
+ 'ClimibingDown',
+ 'CombHair',
+ 'Crunches',
+ 'CyclingIndoor',
+ 'Drinking',
+ 'Dumbbell',
+ 'Eating',
+ 
+ 'Falling',
+ 'False_positive',
+ 'Jogging',
+ 
+ 'Lunges',
+ 'PushUp',
+ 'SitUp',
+ 'Sprinting',
+ 'Squats',
+ 'Typing',
+ 'UnwornSensor',
+ 'Walking',
+ 'WeightLifting']
+ 
+ 
