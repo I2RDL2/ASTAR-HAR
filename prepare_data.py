@@ -1,17 +1,18 @@
 import numpy as np
 # path = 'data/har/stft_32_HAR_DATA_bigger_image.npz'
 # path = 'data/har/HAR_DATA_balanced_diff_subject.npz'
-path = 'data/har/HAR_DATA_same_subject_clean.npz'
+path = 'HAR_DATA.npz'
+# _same_subject_clean.npz'
 # path = 'data/har/HAR_all_DATA_diff_subject.npz'
 # output_path = './data/har/HAR_DATA_lok1.npz'
 # output_path = './data/har/stft_8_HAR_DATA_new.npz'
 # output_path1 = './data/har/stft_16_HAR_DATA_new.npz'
-output_path = 'data/har/HAR_DATA_bal_diff_sub_lok.npz'
+output_path = 'HAR_DATA_bal_diff_sub_lok.npz'
 # output_path = 'data/har/HAR_DATA_all_diff_sub_lok.npz'
 x = np.load(path)
 # cifar_path='data/images/cifar/cifar10/cifar10_gcn_zca_v2.npz'
 
-import pdb; pdb.set_trace()
+# import pdb; pdb.set_trace()
 
 train_x = x['trainx'] 
 train_x = np.expand_dims(train_x, axis=-1)
